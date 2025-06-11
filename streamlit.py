@@ -88,7 +88,7 @@ def on_click_callback():
 load_css()
 initialize_session_state()
 
-st.title("일정 생성 도우미 HAMA 🦛")
+st.title("일정 관리 도우미 HAMA 🦛")
 
 chat_placeholder = st.container()
 prompt_placeholder = st.form("chat-form")

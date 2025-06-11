@@ -8,6 +8,23 @@ from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationSummaryMemory
 import streamlit.components.v1 as components
 
+import requests
+
+def send_to_n8n(user_input: str):
+    url = "https://n8n.1000.school/webhook/7ea84bd5-4ca5-4991-a636-59fb4a8cdc64"
+    payload = {
+        "user_input": user_input,
+        "session_id": st.session_state.get("session_id", "no-session")
+    }
+    try:
+        res = requests.post(url, json=payload)
+        print("✅ n8n 응답:", res.status_code)
+        return res.status_code == 200
+    except Exception as e:
+        print("❌ n8n 전송 실패:", e)
+        return False
+
+
 @dataclass
 class Message:
     origin: Literal["human", "ai"]
@@ -37,19 +54,17 @@ def initialize_session_state():
 def on_click_callback():
     with get_openai_callback() as cb:
         human_prompt = st.session_state.human_prompt
-        llm_response = st.session_state.conversation.run(
-            human_prompt
-        )
-        st.session_state.history.append(
-            Message("human", human_prompt)
-        )
-        st.session_state.history.append(
-            Message("ai", llm_response)
-        )
-        st.session_state.token_count += cb.total_tokens
 
-        # 입력값 초기화
+        # n8n Webhook으로 입력 전송
+        send_to_n8n(human_prompt)
+
+        # 기존 LLM 처리
+        llm_response = st.session_state.conversation.run(human_prompt)
+        st.session_state.history.append(Message("human", human_prompt))
+        st.session_state.history.append(Message("ai", llm_response))
+        st.session_state.token_count += cb.total_tokens
         st.session_state.human_prompt = ""
+
 
 load_css()
 initialize_session_state()

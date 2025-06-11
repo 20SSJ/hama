@@ -9,18 +9,25 @@ from langchain.chains.conversation.memory import ConversationSummaryMemory
 import streamlit.components.v1 as components
 
 import requests
+import uuid
 
 def send_to_n8n(user_input: str):
     url = "https://n8n.1000.school/webhook/7ea84bd5-4ca5-4991-a636-59fb4a8cdc64"
-    payload = {"user_input": user_input}
+    payload = {
+        "user_input": user_input,
+        "sessionId": st.session_state.session_id
+    }
     try:
         res = requests.post(url, json=payload)
         print("전송된 내용:", payload)
         print("응답 코드:", res.status_code)
-        return res.status_code == 200
+        print("응답 원문:", res.text)  # 👈 디버깅용 추가
+
+        # JSON 응답 반환 시도
+        return res.json()
     except Exception as e:
-        st.error(f"n8n 전송 실패: {e}")
-        return False
+        print("JSON 파싱 실패:", e)
+        return {"error": f"JSON 파싱 실패: {e}", "raw": res.text}
 
 @dataclass
 class Message:
@@ -35,8 +42,10 @@ def load_css():
 def initialize_session_state():
     if "history" not in st.session_state:
         st.session_state.history = []
+
     if "token_count" not in st.session_state:
         st.session_state.token_count = 0
+
     if "conversation" not in st.session_state:
         llm = ChatOpenAI(
             temperature=0,
@@ -45,20 +54,33 @@ def initialize_session_state():
         )
         st.session_state.conversation = ConversationChain(
             llm=llm,
-            memory=ConversationSummaryMemory(llm=llm),
+            memory=ConversationSummaryMemory(llm=llm)
         )
+
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
 
 def on_click_callback():
     with get_openai_callback() as cb:
         human_prompt = st.session_state.human_prompt
 
-        # n8n Webhook으로 입력 전송
-        send_to_n8n(human_prompt)
+        # n8n Webhook으로 입력 전송 및 응답 수신
+        n8n_response = send_to_n8n(human_prompt)
 
-        # 기존 LLM 처리
-        llm_response = st.session_state.conversation.run(human_prompt)
+        # 응답 출력 처리
+        if isinstance(n8n_response, dict):
+            if "text" in n8n_response:
+                ai_message = n8n_response["text"]
+            elif "output" in n8n_response:
+                ai_message = n8n_response["output"]  # fallback 처리
+            else:
+                ai_message = f"(예상치 못한 응답 구조): {n8n_response}"
+
+
+
+        # 대화 기록 추가
         st.session_state.history.append(Message("human", human_prompt))
-        st.session_state.history.append(Message("ai", llm_response))
+        st.session_state.history.append(Message("ai", ai_message))
         st.session_state.token_count += cb.total_tokens
         st.session_state.human_prompt = ""
 

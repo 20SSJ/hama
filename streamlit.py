@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 import streamlit as st
+import uuid
 
 from langchain.chat_models import ChatOpenAI
 from langchain.callbacks import get_openai_callback
@@ -18,10 +19,12 @@ def send_to_n8n(user_input: str):
     }
     try:
         res = requests.post(url, json=payload)
-        print("✅ n8n 응답:", res.status_code)
+        st.write("전송된 payload:", payload)
+        st.write("n8n 응답 코드:", res.status_code)
+        st.write("n8n 응답 내용:", res.text)
         return res.status_code == 200
     except Exception as e:
-        print("❌ n8n 전송 실패:", e)
+        st.error(f" n8n 전송 실패: {e}")
         return False
 
 
@@ -50,6 +53,10 @@ def initialize_session_state():
             llm=llm,
             memory=ConversationSummaryMemory(llm=llm),
         )
+    if "token_count" not in st.session_state:
+        st.session_state.token_count = 0
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = str(uuid.uuid4())
 
 def on_click_callback():
     with get_openai_callback() as cb:

@@ -10,7 +10,6 @@ import streamlit.components.v1 as components
 
 @dataclass
 class Message:
-    """Class for keeping track of a chat message."""
     origin: Literal["human", "ai"]
     message: str
 
@@ -49,7 +48,7 @@ def on_click_callback():
         )
         st.session_state.token_count += cb.total_tokens
 
-        # 🔽 입력값 초기화
+        # 입력값 초기화
         st.session_state.human_prompt = ""
 
 load_css()
